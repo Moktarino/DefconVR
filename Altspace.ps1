@@ -1,26 +1,34 @@
-# This script logs in successfully, but gets a 422 error when it tries to create an event.
-# I've made the packet captures look as close as possible to a browser, but still no dice.
+# This script creates AltspaceVR events.
 
-$Proxy = $True
 
-$UserMail = "moktarino@gmail.com"
-$UserPass = "hunter2"
-$SpaceTemplateID = "610347610863042764"
-$PrimaryDisplayUrl = " https://drive.google.com/file/d/1yPT-e22cf0FlUlOFx0mTp5l8hH_wSoil/view"
-$EventType = "private"
+#Example: ./Altspace.ps1 -UserMail "Moktarino@gmail.com" -EventTitle "An Automated Event!" -EventDesc "This event was created by CLI!"
 
-$ProxyAddress = "http://127.0.0.1:8888"
-$StartTime = Get-Date "08/11/2018 23:30:00"
-$EndTime = Get-Date "08/12/2018 23:30:00"
 
-$Random = Get-Random -Minimum 100 -Maximum 300
-$EventTitle = "EventTitle---$Random"
-$EventDesc = "EventDesc---$Random"
+param (
+    [string]$UserMail,
+    [string]$UserPass = $( Read-Host "Input password, please"),
+    [string]$SpaceTemplateID = "610347610863042764",
+    [string]$EventTitle,
+    [string]$EventDesc,
+    [string]$StartTime = ((Get-Date).addMinutes(15)),
+    [string]$EndTime = ((Get-Date).AddMinutes((75))),
+    [string]$EventType = "private",
+    [string]$TwitterTags,
+    [string]$YoutubeID,
+    [string]$ChannelID,
+    [string]$Domains,
+    [string]$ProxyAddress
+    )
+
+If ($ProxyAddress) {
+    $Proxy = $True
+    }
+
 
 $LoginUrl = "https://account.altvr.com/users/sign_in"
 $EventsUrl = 'https://account.altvr.com/events'
-$NewEventUrl = 'https://account.altvr.com/events'
-$WebFormBoundary = '----WebKitFormBoundaryL9Ti2e9QJY9rguEW'
+$NewEventUrl = 'https://account.altvr.com/events/new'
+$WebFormBoundary = "---WebKitFormBoundary$(Get-Random -Minimum 0 -Maximum 10000)"
 $UserTZOffset = 420
 $utf8 = '✓'
 
@@ -75,6 +83,9 @@ $UserID = $UserIDResponse.Links | Where-Object {$_.href -match 'user_profile'} |
 $EventStartTime = Get-Date $StartTime -Format "yyyy-MM-dd hh:mm tt -0700"
 $EventEndTime = Get-Date $EndTime -Format "yyyy-MM-dd hh:mm tt -0700"
 
+$AuthTokenResponse2 = Invoke-WebRequest -Uri $NewEventUrl -WebSession $Session
+$AuthToken = $AuthTokenResponse2.InputFields | Where-Object {$_.name -eq 'authenticity_token' } | Select-Object -ExpandProperty value
+
 $PostData = [ordered]@{
     "utf8" = $utf8
     "authenticity_token" = $AuthToken
@@ -84,25 +95,21 @@ $PostData = [ordered]@{
     "event[start_time]" = $EventStartTime
     "event[end_time]" = $EventEndTime
     "event[event_type]" = $EventType
-    "event[channel_id]" = ''
+    "event[channel_id]" = $ChannelID
     "img:event[image]" = ''
     "event[remove_image]" = 0
     "event[use_image_for_banner_image]" = 0
     "img:event[banner_image]" = ''
     "event[remove_banner_image]" = 0
-    "event[youtube_video_id]" = ''
-    "event[twitter_tags]" = ''
+    "event[youtube_video_id]" = $YoutubeID
+    "event[twitter_tags]" = $TwitterTags
     "event[default_primary_enclosure_url]" = ''
     "event[use_tile_image_for_primary_display]" = 0
-    "event[admin_lock_all]" = 0
-    }
-
-$PostData2 = [ordered]@{
     "event[admin_lock_all]" = 1
     "event[role_list]" = ''
     "event[group_id]" = ''
     "event[tagline]" = ''
-    "event[domains]" = ''
+    "event[domains]" = $Domains
     "commit" = 'Create Event'
     "event[default_primary_display_url]" = $PrimaryDisplayUrl
     "event[space_template_id]" = $SpaceTemplateID
@@ -115,29 +122,22 @@ Foreach ($Key in $PostData.Keys) {
     $Content = New-MultipartFormContent -Name $Key -Value $PostData[$Key]
     $multipartContent.add($Content)
     }
-Foreach ($Key in $PostData2.Keys) {
-    $Content = $Null
-    $Content = New-MultipartFormContent -Name $Key -Value $PostData2[$Key]
-    $multipartContent.add($Content)
-    }
+
 
 $Headers = @{
     'Accept' = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
     'Accept-Encoding' = "gzip, deflate, br"
     'Accept-Language' = "en-US,en;q=0.9"
-    'Origin' = "https://account.altvr.com"
-    'Referer' = "https://account.altvr.com/events/new"
-    'Upgrade-Insecure-Requests' = 1
-    'DNT' = 1
-    'Cache-Control' = 'max-age=0'
-    'Connection' = 'keep-alive'
-    'User-Agent' = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36'
     }
 
+$EventCreateResponse = $Null
 if ($Proxy) {
-    $EventCreateResponse = Invoke-WebRequest -Headers $Headers -Uri $NewEventUrl -Method Post -Body $multipartContent -Proxy $ProxyAddress -SkipCertificateCheck -WebSession $Session
+    $EventCreateResponse = Invoke-WebRequest -Headers $Headers -Uri $EventsUrl -Method Post -Body $multipartContent -Proxy $ProxyAddress -SkipCertificateCheck -WebSession $Session
     } 
 else {
-    $EventCreateResponse = Invoke-WebRequest -Headers $Headers -Uri $NewEventUrl -Method Post -Body $multipartContent -WebSession $Session
+    $EventCreateResponse = Invoke-WebRequest -Headers $Headers -Uri $EventsUrl -Method Post -Body $multipartContent -WebSession $Session
     }
-$EventCreateResponse
+
+$EventID = $EventCreateResponse.Links | Where-Object {$_.href -match "calendar"} | % { $_.href.split("/")[2]}
+
+Write-Host "https://account.altvr.com/events/$EventID"
