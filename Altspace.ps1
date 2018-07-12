@@ -10,7 +10,7 @@ param (
     [string]$SpaceTemplateID = "610347610863042764",
     [string]$EventTitle,
     [string]$EventDesc,
-    [DateTime$StartTime = ((Get-Date).addMinutes(15)),
+    [DateTime]$StartTime = ((Get-Date).addMinutes(15)),
     [DateTime]$EndTime = ((Get-Date).AddMinutes((75))),
     [string]$EventType = "private",
     [string]$TwitterTags,
