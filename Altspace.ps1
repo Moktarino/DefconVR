@@ -1,3 +1,6 @@
+# This script logs in successfully, but gets a 422 error when it tries to create an event.
+# I've made the packet captures look as close as possible to a browser, but still no dice.
+
 $Proxy = $True
 
 $UserMail = "moktarino@gmail.com"
